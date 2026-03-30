@@ -1,0 +1,4 @@
+/log/
+/example/echo/log
+/example/fiber/log
+/example/gorm/log
