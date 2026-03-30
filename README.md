@@ -1,8 +1,6 @@
-# 📜 Go Server Logging Middleware
+# Go Logging Middleware
 
-[![Go Version](https://img.shields.io/badge/Go-v1.22.0-blue.svg)](https://golang.org/doc/go1.22)[![Status](https://img.shields.io/badge/status-development-green.svg)](https://shields.io/)[![Release](https://img.shields.io/badge/release-v1.1.0-yellow.svg)](https://shields.io/)
-
-Go Server Logging Middleware is a structured logging library for Go servers using frameworks like [Echo](https://echo.labstack.com) or [Fiber](https://gofiber.io). Its key feature is **sub-logging**, enabling you to capture the entire lifecycle of a request, including logs generated across handlers, use cases, and repositories. This makes it easier to trace and debug issues efficiently.
+Go Logging Middleware is a structured logging library for Go servers using frameworks like [Echo](https://echo.labstack.com) or [Fiber](https://gofiber.io). Its key feature is **sub-logging**, enabling you to capture the entire lifecycle of a request, including logs generated across handlers, use cases, and repositories. This makes it easier to trace and debug issues efficiently.
 
 
 
