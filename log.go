@@ -26,11 +26,11 @@ const (
 )
 
 var (
-	globalLogger            *slog.Logger
-	enableHideSensitiveData bool
-	disableSubLogs          bool
+	globalLogger *slog.Logger
+	globalConfig Config
 
 	DefaultConfig = Config{
+		ServiceName:       "undefined",
 		LogToTerminal:     true,
 		LogToFile:         false,
 		Location:          "/log/",
@@ -46,6 +46,7 @@ var (
 
 type (
 	Config struct {
+		ServiceName       string
 		LogToTerminal     bool       // Set log output to stdout
 		LogToFile         bool       // Set log output to file
 		Location          string     // Location file log will be save. Default "project_directory/log/".
@@ -65,6 +66,9 @@ func Init() {
 }
 
 func InitWithConfig(cfg Config) {
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = DefaultConfig.ServiceName
+	}
 	if cfg.Location == "" {
 		cfg.Location = DefaultConfig.Location
 	}
@@ -84,8 +88,7 @@ func InitWithConfig(cfg Config) {
 		cfg.Level = DefaultConfig.Level
 	}
 
-	enableHideSensitiveData = cfg.HideSensitiveData
-	disableSubLogs = cfg.DisableSubLogs
+	globalConfig = cfg
 
 	var output []io.Writer
 

@@ -7,7 +7,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 
 	"github.com/garin-allo/log"
 )
@@ -32,11 +31,6 @@ func SaveLogRequest() grpc.UnaryServerInterceptor {
 			}
 		}
 
-		// Get client IP Address from context
-		if client, ok := peer.FromContext(ctx); ok {
-			requestLog.IP = client.Addr.String()
-		}
-
 		// Recover if panic occur
 		defer func() {
 			if r := recover(); r != nil {
@@ -58,7 +52,8 @@ func SaveLogRequest() grpc.UnaryServerInterceptor {
 
 		requestLog.ReqBody = req
 		requestLog.RespBody = response
-		requestLog.Method = "GRPC"
+		requestLog.Source = "GRPC"
+		requestLog.Method = info.FullMethod
 		requestLog.URL = info.FullMethod
 		requestLog.StatusCode = statusCodeSuccess
 

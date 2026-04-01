@@ -26,24 +26,27 @@ type (
 
 	// Data Model for tracking information of incoming request
 	request struct {
-		traceID    string
-		IP         string
-		Method     string
-		URL        string
-		ReqHeader  any
-		ReqBody    any
-		RespHeader any
-		RespBody   any
-		StatusCode int             // HTTP status code or other code
-		timeStart  time.Time       // Capture when the request start
-		ExtraData  map[string]any  // Additional data
-		subLogs    []subLog        // Sub logging data
-		WaitGroup  *sync.WaitGroup // Wait for all goroutine finish before printing log
+		traceID        string
+		Service        string
+		Source         string
+		Method         string
+		URL            string
+		ReqHeader      any
+		ReqBody        any
+		RespHeader     any
+		RespBody       any
+		StatusCode     int             // HTTP status code or other code
+		timeStart      time.Time       // Capture when the request start
+		ExtraData      map[string]any  // Additional data
+		subLogs        []subLog        // Sub logging data
+		WaitGroup      *sync.WaitGroup // Wait for all goroutine finish before printing log
+		disableSubLogs bool            // Print to global log instead of append to sublogs
 	}
 
 	// Data model for saving all log output in single request flow
 	subLog struct {
 		Level   string `json:"level"`
+		Time    string `json:"time"`
 		Message string `json:"msg"`
 	}
 )
@@ -51,10 +54,11 @@ type (
 // NewRequest will create new log data model for incoming request
 func NewRequest() *request {
 	return &request{
-		traceID:   generateRandomString(20),
-		timeStart: time.Now(),
-		ExtraData: make(map[string]any),
-		WaitGroup: new(sync.WaitGroup),
+		traceID:        generateRandomString(20),
+		timeStart:      time.Now(),
+		ExtraData:      make(map[string]any),
+		WaitGroup:      new(sync.WaitGroup),
+		disableSubLogs: globalConfig.DisableSubLogs,
 	}
 }
 
@@ -63,7 +67,7 @@ func (m *request) Save() {
 	go func() {
 		m.WaitGroup.Wait() // Wait for all goroutine finish before logging
 
-		if enableHideSensitiveData {
+		if globalConfig.HideSensitiveData {
 			for _, data := range m.ExtraData {
 				maskSensitiveData(data)
 			}
@@ -72,9 +76,10 @@ func (m *request) Save() {
 		}
 
 		globalLogger.LogAttrs(context.Background(), LevelRequest, "",
+			slog.String("service", globalConfig.ServiceName),
 			slog.String("caller", GetCaller("", 1)),
 			slog.String(traceID, m.traceID),
-			slog.String("ip", m.IP),
+			slog.String("source", m.Source),
 			slog.String("method", m.Method),
 			slog.String("url", m.URL),
 			slog.Int("statusCode", m.StatusCode),
@@ -105,11 +110,12 @@ func (m *request) SaveToContext(parent context.Context) context.Context {
 
 // Context is used for get log request model from context
 func Context(ctx context.Context) *request {
-	data, ok := ctx.Value(logRequestKey).(*request)
+	r, ok := ctx.Value(logRequestKey).(*request)
 	if !ok {
-		data = NewRequest()
+		r = NewRequest()
+		r.disableSubLogs = true
 	}
-	return data
+	return r
 }
 
 // RecordDuration is used for record total duration a process could take
@@ -120,120 +126,120 @@ func (m *request) RecordDuration(processName string) processData {
 func (m *request) Debug(i ...any) {
 	msg := formatMultipleArguments(i)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelDebug, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelDebug, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelDebug, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Debugf(format string, i ...any) {
 	msg := fmt.Sprintf(format, i...)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelDebug, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelDebug, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelDebug, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Info(i ...any) {
 	msg := formatMultipleArguments(i)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelInfo, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelInfo, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelInfo, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Infof(format string, i ...any) {
 	msg := fmt.Sprintf(format, i...)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelInfo, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelInfo, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelInfo, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Warn(i ...any) {
 	msg := formatMultipleArguments(i)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelWarning, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelWarn, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelWarn, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Warnf(format string, i ...any) {
 	msg := fmt.Sprintf(format, i...)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelWarning, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelWarn, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelWarn, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Error(i ...any) {
 	msg := formatMultipleArguments(i)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelError, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelError, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelError, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Errorf(format string, i ...any) {
 	msg := fmt.Sprintf(format, i...)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelError, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelError, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelError, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Fatal(i ...any) {
 	msg := formatMultipleArguments(i)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelFatal, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelFatal, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelFatal, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) Fatalf(format string, i ...any) {
 	msg := fmt.Sprintf(format, i...)
 
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelFatal, msg, "")
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelFatal, subLogSkipLevel), Message: msg})
+	m.subLogs = append(m.subLogs, subLog{Level: GetCaller(subLevelFatal, subLogSkipLevel), Time: time.Now().Format("15:04:05.000"), Message: msg})
 }
 
 func (m *request) SubLog(levelAndCaller, message string) {
-	if disableSubLogs {
+	if m.disableSubLogs {
 		m.globalLog(LevelInfo, message, levelAndCaller)
 		return
 	}
 
-	m.subLogs = append(m.subLogs, subLog{Level: levelAndCaller, Message: message})
+	m.subLogs = append(m.subLogs, subLog{Level: levelAndCaller, Time: time.Now().Format("15:04:05.000"), Message: message})
 }
 
 func (m *request) globalLog(level slog.Level, msg string, caller string) {

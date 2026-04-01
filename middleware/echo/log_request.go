@@ -45,7 +45,7 @@ func SaveLogRequest() middleware.BodyDumpHandler {
 func extractRequestData(ctx context.Context, c echo.Context, req, resp []byte) {
 	requestLog := log.Context(ctx) // Get log request from context
 
-	requestLog.IP = c.RealIP()
+	requestLog.Source = "api"
 	requestLog.Method = c.Request().Method
 	requestLog.URL = c.Request().Host + c.Request().URL.String()
 	requestLog.ReqHeader = getHeader(c, "REQ")

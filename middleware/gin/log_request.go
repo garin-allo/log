@@ -74,7 +74,7 @@ func extractRequestData(ctx context.Context, c *gin.Context, req, resp []byte) {
 	requestLog := log.Context(ctx) // Get log request from context
 
 	// Populate log information
-	requestLog.IP = c.ClientIP()
+	requestLog.Source = "api"
 	requestLog.Method = c.Request.Method
 	requestLog.URL = c.Request.Host + c.Request.URL.String()
 	requestLog.ReqHeader, requestLog.RespHeader = getHeader(c)

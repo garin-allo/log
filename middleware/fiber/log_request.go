@@ -3,8 +3,9 @@ package fiber
 import (
 	"encoding/json"
 
-	"github.com/garin-allo/log"
 	"github.com/gofiber/fiber/v2"
+
+	"github.com/garin-allo/log"
 )
 
 func SaveLogRequest() fiber.Handler {
@@ -19,7 +20,7 @@ func SaveLogRequest() fiber.Handler {
 			requestLog.Errorf("saveLogRequest next Middleware failed, %s, %s", err.Error(), c.OriginalURL())
 		}
 
-		requestLog.IP = getClientIPAdress(c)
+		requestLog.Source = "api"
 		requestLog.Method = string(c.Request().Header.Method())
 		requestLog.URL = c.Hostname() + string(c.OriginalURL())
 		requestLog.ReqHeader = getHeader(c, "REQ")
