@@ -58,11 +58,3 @@ func getHeader(f *fiber.Ctx, status string) map[string]string {
 	}
 	return header
 }
-
-// getClientIPAdress is for get User IP Address
-func getClientIPAdress(f *fiber.Ctx) string {
-	if f.Get("X-Real-Ip") == "" {
-		return f.IP()
-	}
-	return f.Get("X-Real-Ip")
-}

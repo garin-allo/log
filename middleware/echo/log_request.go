@@ -3,6 +3,9 @@ package echo
 import (
 	"context"
 	"encoding/json"
+	"mime"
+	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -51,7 +54,9 @@ func extractRequestData(ctx context.Context, c echo.Context, req, resp []byte) {
 
 	// Set the response body if not set yet
 	if requestLog.RespBody == nil {
-		if err := json.Unmarshal(resp, &requestLog.RespBody); err != nil {
+		if isBlobResponse(c) {
+			requestLog.RespBody = extractResponseFileName(c)
+		} else if err := json.Unmarshal(resp, &requestLog.RespBody); err != nil {
 			requestLog.RespBody = string(resp)
 		}
 	}
@@ -65,7 +70,9 @@ func extractRequestData(ctx context.Context, c echo.Context, req, resp []byte) {
 		requestLog.ReqBody = queryArgs
 	} else {
 		if requestLog.ReqBody == nil {
-			if err := json.Unmarshal(req, &requestLog.ReqBody); err != nil {
+			if isBlobRequest(c) {
+				requestLog.ReqBody = extractRequestFileNames(c)
+			} else if err := json.Unmarshal(req, &requestLog.ReqBody); err != nil {
 				requestLog.ReqBody = string(req)
 			}
 		}
@@ -85,4 +92,46 @@ func getHeader(c echo.Context, status string) map[string][]string {
 		}
 	}
 	return header
+}
+
+func isBlobRequest(c echo.Context) bool {
+	contentType := c.Request().Header.Get(echo.HeaderContentType)
+	return strings.Contains(strings.ToLower(contentType), "multipart/form-data")
+}
+
+func isBlobResponse(c echo.Context) bool {
+	header := c.Response().Header()
+	contentType := header.Get(echo.HeaderContentType)
+	if strings.Contains(strings.ToLower(contentType), "application/octet-stream") {
+		return true
+	}
+	return header.Get(echo.HeaderContentDisposition) != ""
+}
+
+func extractRequestFileNames(c echo.Context) map[string][]string {
+	files := make(map[string][]string)
+	if err := c.Request().ParseMultipartForm(32 << 20); err != nil && err != http.ErrNotMultipart {
+		return files
+	}
+	if c.Request().MultipartForm == nil {
+		return files
+	}
+	for field, fhs := range c.Request().MultipartForm.File {
+		for _, fh := range fhs {
+			files[field] = append(files[field], fh.Filename)
+		}
+	}
+	return files
+}
+
+func extractResponseFileName(c echo.Context) string {
+	header := c.Response().Header()
+	disposition := header.Get(echo.HeaderContentDisposition)
+	_, params, err := mime.ParseMediaType(disposition)
+	if err == nil {
+		if filename := params["filename"]; filename != "" {
+			return filename
+		}
+	}
+	return "blob"
 }
