@@ -1,7 +1,6 @@
 package echo
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"runtime"
@@ -76,11 +75,8 @@ func RecoverWithConfig(config RecoverConfig) echo.MiddlewareFunc {
 					length := runtime.Stack(stack, !config.DisableStackAll)
 					panicMsg := fmt.Sprintf("[PANIC RECOVER] %v %s\n", err, stack[:length])
 
-					// Get parent context from Echo Locals
-					ctx, ok := c.Get("ctx").(context.Context)
-					if !ok {
-						ctx = context.Background()
-					}
+					// Get parent context from Echo
+					ctx := c.Request().Context()
 
 					// Extract Request Body from request
 					reqBody := []byte{}

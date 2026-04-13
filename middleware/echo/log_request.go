@@ -14,13 +14,13 @@ import (
 func SetLogRequest() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			// Get parent context from Echo Locals
-			ctx, ok := c.Get("ctx").(context.Context)
-			if !ok {
-				ctx = context.Background()
-			}
-			ctx = log.NewRequest().SaveToContext(ctx)
-			c.Set("ctx", ctx)
+			// Get parent context from Echo
+			parentCtx := c.Request().Context()
+
+			newCtx := log.NewRequest().SaveToContext(parentCtx)
+
+			c.SetRequest(c.Request().WithContext(newCtx))
+
 			return next(c)
 		}
 	}
@@ -32,10 +32,7 @@ func SetLogRequest() echo.MiddlewareFunc {
 func SaveLogRequest() middleware.BodyDumpHandler {
 	return func(c echo.Context, req []byte, resp []byte) {
 		// Get parent context from Echo Locals
-		ctx, ok := c.Get("ctx").(context.Context)
-		if !ok {
-			ctx = context.Background()
-		}
+		ctx := c.Request().Context()
 
 		extractRequestData(ctx, c, req, resp)
 		log.Context(ctx).Save() // Save log request
