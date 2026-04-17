@@ -1,18 +1,22 @@
 package gorilla
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"runtime"
 	"strings"
 
 	"github.com/garin-allo/log"
 )
+
+const maxBodySize = 3 * (1 << 20) // 3MB
 
 // SetLogRequest injects a new log.Request into the request context.
 // Must be registered before SaveLogRequest.
@@ -36,7 +40,7 @@ func SaveLogRequest() func(http.Handler) http.Handler {
 			// actual handler can still read it.
 			var reqBody []byte
 			if r.Body != nil && !isBlobRequest(r) {
-				reqBody, _ = io.ReadAll(r.Body)
+				reqBody, _ = io.ReadAll(io.LimitReader(r.Body, maxBodySize))
 				r.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 			}
 
@@ -59,7 +63,7 @@ func SaveLogRequest() func(http.Handler) http.Handler {
 
 					err, ok := rec.(error)
 					if !ok {
-						err = fmt.Errorf("%v", r)
+						err = fmt.Errorf("%v", rec)
 					}
 
 					stack := make([]byte, 4<<10)
@@ -210,11 +214,33 @@ func (rw *bodyDumpResponseWriter) WriteHeader(code int) {
 
 func (rw *bodyDumpResponseWriter) Write(b []byte) (int, error) {
 	rw.written = true
-	rw.body.Write(b) // capture a copy
+
+	if rw.body.Len() < maxBodySize {
+		remaining := maxBodySize - rw.body.Len()
+		if len(b) > remaining {
+			rw.body.Write(b[:remaining])
+		} else {
+			rw.body.Write(b)
+		}
+	}
+
 	return rw.ResponseWriter.Write(b)
 }
 
 // Unwrap lets http.ResponseController reach the underlying writer.
 func (rw *bodyDumpResponseWriter) Unwrap() http.ResponseWriter {
 	return rw.ResponseWriter
+}
+
+func (rw *bodyDumpResponseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (rw *bodyDumpResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := rw.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, http.ErrNotSupported
 }
